@@ -3,5 +3,4 @@ targets:
     builders:
       drift_dev:
         options:
-          # Generates companion classes for easy insertions
-          compact_query_methods: true
+          generate_manager: true

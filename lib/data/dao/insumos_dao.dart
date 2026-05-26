@@ -23,7 +23,7 @@ class InsumosDao extends DatabaseAccessor<AppDatabase>
       (select(insumos)..where((i) => i.categoria.equals(categoria))).get();
 
   Future<List<DbInsumo>> getInsumosCriticos() => (select(insumos)
-        ..where((i) => i.stockTotal.isSmallerOrEqualValue(i.stockMinimo)))
+        ..where((i) => i.stockTotal.isSmallerOrEqual(i.stockMinimo)))
       .get();
 
   Future<int> insertInsumo(InsumosCompanion entry) =>

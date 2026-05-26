@@ -1,0 +1,17 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    - avoid_print
+    - prefer_const_constructors
+    - prefer_const_literals_to_create_immutables
+    - unnecessary_this
+    - use_super_parameters
+    - prefer_final_locals
+
+analyzer:
+  exclude:
+    - lib/data/app_database.g.dart
+    - lib/data/dao/*.g.dart
+  errors:
+    invalid_annotation_target: ignore

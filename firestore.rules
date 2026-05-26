@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'administrador';
+    }
+
+    function isLabWorker() {
+      return isAuthenticated() && getUserRole() == 'laboratorista';
+    }
+
+    function isAdminOrLab() {
+      return isAdmin() || isLabWorker();
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Inventory (Insumos) ───────────────────────────────────────────────
+    match /inventory/{insumoId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLab();
+      allow delete: if isAdmin();
+    }
+
+    // ── Lots ──────────────────────────────────────────────────────────────
+    match /lots/{loteId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLab();
+      allow delete: if isAdmin();
+    }
+
+    // ── Movements ─────────────────────────────────────────────────────────
+    match /movements/{movId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdminOrLab();
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Requests (Solicitudes) ────────────────────────────────────────────
+    match /requests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      // Only admin can update status (approve/reject)
+      allow update: if isAdmin() || isOwner(resource.data.solicitanteId);
+      allow delete: if isAdmin();
+    }
+
+    // ── Alerts ────────────────────────────────────────────────────────────
+    match /alerts/{alertId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLab();
+      allow delete: if isAdminOrLab();
+    }
+  }
+}

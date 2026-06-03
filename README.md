@@ -90,9 +90,9 @@ Cada entidad localizada en SQLite mantiene el campo `syncStatus` para indicar si
 ## Estados de negocio
 
 ### Usuario
-
+estadoCuenta:
 - `activo` — usuario autorizado para operar.
-- `blocked` / `activo = false` — acceso bloqueado.
+- `blocked`  — acceso bloqueado.
 - `pendingApproval` — usuario en espera de autorización.
 
 ### Solicitud

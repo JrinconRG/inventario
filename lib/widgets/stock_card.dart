@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/insumo_model.dart';
+import 'sync_status_badge.dart';
 import '../utils/helpers.dart';
 
 class StockCard extends StatelessWidget {
@@ -57,20 +58,27 @@ class StockCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: estadoColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      insumo.estado.displayName,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: estadoColor,
-                        fontWeight: FontWeight.w600,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: estadoColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          insumo.estado.displayName,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: estadoColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 6),
+                      SyncStatusBadge(syncStatus: insumo.syncStatus, showLabel: false),
+                    ],
                   ),
                 ],
               ),
@@ -209,32 +217,29 @@ class StatCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(icon, color: color, size: 24),
-                  ),
-                ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               Text(
                 value,
-                style: theme.textTheme.headlineMedium?.copyWith(
+                style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
               ),
+              const SizedBox(height: 2),
               Text(
                 title,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -247,6 +252,8 @@ class StatCard extends StatelessWidget {
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurface.withOpacity(0.4),
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
             ],
           ),

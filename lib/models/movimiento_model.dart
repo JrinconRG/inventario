@@ -10,6 +10,7 @@ class MovimientoModel {
   final String responsableNombre;
   final String observaciones;
   final DateTime fecha;
+  final String syncStatus; // 'synced', 'pending', 'failed'
 
   const MovimientoModel({
     required this.id,
@@ -21,6 +22,7 @@ class MovimientoModel {
     required this.responsableNombre,
     this.observaciones = '',
     required this.fecha,
+    this.syncStatus = 'pending',
   });
 
   MovimientoModel copyWith({
@@ -33,6 +35,7 @@ class MovimientoModel {
     String? responsableNombre,
     String? observaciones,
     DateTime? fecha,
+    String? syncStatus,
   }) {
     return MovimientoModel(
       id: id ?? this.id,
@@ -44,6 +47,7 @@ class MovimientoModel {
       responsableNombre: responsableNombre ?? this.responsableNombre,
       observaciones: observaciones ?? this.observaciones,
       fecha: fecha ?? this.fecha,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -57,6 +61,7 @@ class MovimientoModel {
         'responsableNombre': responsableNombre,
         'observaciones': observaciones,
         'fecha': fecha.toIso8601String(),
+        'syncStatus': syncStatus,
       };
 
   factory MovimientoModel.fromMap(Map<String, dynamic> map) => MovimientoModel(
@@ -69,5 +74,6 @@ class MovimientoModel {
         responsableNombre: map['responsableNombre'] as String,
         observaciones: map['observaciones'] as String? ?? '',
         fecha: DateTime.parse(map['fecha'] as String),
+        syncStatus: map['syncStatus'] as String? ?? 'pending',
       );
 }

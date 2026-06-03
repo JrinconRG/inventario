@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/alerta_model.dart';
-import '../utils/enums.dart';
 import '../utils/helpers.dart';
 import '../utils/date_formatter.dart';
 

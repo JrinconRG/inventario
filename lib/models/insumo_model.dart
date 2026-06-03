@@ -11,6 +11,7 @@ class InsumoModel {
   final InsumoEstado estado;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String syncStatus; // 'synced', 'pending', 'failed'
 
   const InsumoModel({
     required this.id,
@@ -23,6 +24,7 @@ class InsumoModel {
     required this.estado,
     required this.createdAt,
     this.updatedAt,
+    this.syncStatus = 'pending',
   });
 
   bool get isCritico => stockTotal <= stockMinimo;
@@ -38,6 +40,7 @@ class InsumoModel {
     InsumoEstado? estado,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? syncStatus,
   }) {
     return InsumoModel(
       id: id ?? this.id,
@@ -50,6 +53,7 @@ class InsumoModel {
       estado: estado ?? this.estado,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -64,6 +68,7 @@ class InsumoModel {
         'estado': estado.name,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
+        'syncStatus': syncStatus,
       };
 
   factory InsumoModel.fromMap(Map<String, dynamic> map) => InsumoModel(
@@ -79,5 +84,6 @@ class InsumoModel {
         updatedAt: map['updatedAt'] != null
             ? DateTime.parse(map['updatedAt'] as String)
             : null,
+        syncStatus: map['syncStatus'] as String? ?? 'pending',
       );
 }

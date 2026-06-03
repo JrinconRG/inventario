@@ -18,15 +18,13 @@ class LotesDao extends DatabaseAccessor<AppDatabase> with _$LotesDaoMixin {
       (select(lotes)..where((l) => l.id.equals(id))).getSingleOrNull();
 
   /// FEFO: retorna lotes ordenados por fecha de vencimiento más próxima.
-  Future<List<DbLote>> getLotesFEFO(String insumoId) =>
-      (select(lotes)
-            ..where((l) => l.insumoId.equals(insumoId))
-            ..orderBy([(l) => OrderingTerm.asc(l.fechaVencimiento)]))
-          .get();
+  Future<List<DbLote>> getLotesFEFO(String insumoId) => (select(lotes)
+        ..where((l) => l.insumoId.equals(insumoId))
+        ..orderBy([(l) => OrderingTerm.asc(l.fechaVencimiento)]))
+      .get();
 
   Future<List<DbLote>> getLotesVencidos() => (select(lotes)
-        ..where((l) => l.fechaVencimiento
-            .isSmallerThanValue(DateTime.now())))
+        ..where((l) => l.fechaVencimiento.isSmallerThanValue(DateTime.now())))
       .get();
 
   Future<List<DbLote>> getLotesProximosAVencer(int diasLimite) {
@@ -40,8 +38,7 @@ class LotesDao extends DatabaseAccessor<AppDatabase> with _$LotesDaoMixin {
 
   Future<int> insertLote(LotesCompanion entry) => into(lotes).insert(entry);
 
-  Future<bool> updateLote(LotesCompanion entry) =>
-      update(lotes).replace(entry);
+  Future<bool> updateLote(LotesCompanion entry) => update(lotes).replace(entry);
 
   Future<int> deleteLote(String id) =>
       (delete(lotes)..where((l) => l.id.equals(id))).go();
@@ -58,7 +55,18 @@ class LotesDao extends DatabaseAccessor<AppDatabase> with _$LotesDaoMixin {
   Future<List<DbLote>> getPendingSync() =>
       (select(lotes)..where((l) => l.syncStatus.equals('pending'))).get();
 
+  Future<List<DbLote>> getFailedSync() =>
+      (select(lotes)..where((l) => l.syncStatus.equals('failed'))).get();
+
   Future<void> markAsSynced(String id) =>
       (update(lotes)..where((l) => l.id.equals(id)))
           .write(const LotesCompanion(syncStatus: Value('synced')));
+
+  Future<void> markAsFailed(String id) =>
+      (update(lotes)..where((l) => l.id.equals(id)))
+          .write(const LotesCompanion(syncStatus: Value('failed')));
+
+  Future<void> markAsPending(String id) =>
+      (update(lotes)..where((l) => l.id.equals(id)))
+          .write(const LotesCompanion(syncStatus: Value('pending')));
 }

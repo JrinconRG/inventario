@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/solicitud_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/solicitud_provider.dart';
 import '../../utils/enums.dart';
 import '../../utils/helpers.dart';
@@ -15,13 +16,23 @@ class SolicitudDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sol = context.watch<SolicitudProvider>();
-    final solicitud = sol.solicitudes
-        .where((s) => s.id == solicitudId)
-        .firstOrNull;
+    final auth = context.watch<AuthProvider>();
+    final solicitud = sol.getSolicitudById(solicitudId);
 
     if (solicitud == null) {
       return const Scaffold(
         body: LoadingWidget(message: 'Cargando solicitud...'),
+      );
+    }
+
+    if (auth.isDocente && solicitud.solicitanteId != auth.usuario?.id) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Detalle de solicitud')),
+        body: const EmptyStateWidget(
+          icon: Icons.lock_outline,
+          title: 'Acceso restringido',
+          subtitle: 'Solo puedes ver tus propias solicitudes',
+        ),
       );
     }
 

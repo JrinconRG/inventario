@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/lote_model.dart';
+import 'sync_status_badge.dart';
 import '../utils/date_formatter.dart';
 
 class LoteCard extends StatelessWidget {
@@ -40,7 +41,13 @@ class LoteCard extends StatelessWidget {
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
-                _StatusChip(label: statusLabel, color: statusColor),
+                Row(
+                  children: [
+                    _StatusChip(label: statusLabel, color: statusColor),
+                    const SizedBox(width: 8),
+                    SyncStatusBadge(syncStatus: lote.syncStatus, showLabel: false),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 12),

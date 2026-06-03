@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/sync_provider.dart';
 import '../../services/sync_service.dart';
 import '../../utils/helpers.dart';
 import '../../config/constants.dart';
@@ -13,28 +14,19 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool _isSyncing = false;
-
-  Future<void> _syncNow() async {
-    setState(() => _isSyncing = true);
-    try {
-      await context.read<SyncService>().syncAll();
-      if (mounted) {
-        Helpers.showSnackBar(context, 'Sincronización completada');
-      }
-    } catch (e) {
-      if (mounted) {
-        Helpers.showSnackBar(context, 'Error de sincronización: $e',
-            isError: true);
-      }
-    } finally {
-      if (mounted) setState(() => _isSyncing = false);
-    }
+  @override
+  void initState() {
+    super.initState();
+    // Cargar conteos iniciales
+    Future.microtask(() {
+      if (mounted) context.read<SyncProvider>().loadCounts();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final syncProvider = context.watch<SyncProvider>();
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -52,8 +44,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     radius: 32,
                     backgroundColor: theme.colorScheme.primaryContainer,
                     child: Text(
-                      auth.usuario?.nombre.substring(0, 1).toUpperCase() ??
-                          '?',
+                      auth.usuario?.nombre.substring(0, 1).toUpperCase() ?? '?',
                       style: theme.textTheme.headlineMedium?.copyWith(
                           color: theme.colorScheme.onPrimaryContainer),
                     ),
@@ -85,9 +76,62 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 24),
 
-          Text('Sistema',
-              style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary)),
+          Text('Sincronización',
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(color: theme.colorScheme.primary)),
+          const SizedBox(height: 8),
+
+          // Estado de sincronización
+          if (syncProvider.hasPendingOrFailed)
+            Card(
+              color: syncProvider.failedCount > 0
+                  ? Colors.red.shade50
+                  : Colors.amber.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(
+                      syncProvider.failedCount > 0
+                          ? Icons.error_outline
+                          : Icons.cloud_upload,
+                      color: syncProvider.failedCount > 0
+                          ? Colors.red
+                          : Colors.orange,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (syncProvider.pendingCount > 0)
+                            Text(
+                              '${syncProvider.pendingCount} registro(s) pendiente(s)',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          if (syncProvider.failedCount > 0)
+                            Text(
+                              '${syncProvider.failedCount} registro(s) con error',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          if (syncProvider.lastError != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              syncProvider.lastError!,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: Colors.red),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 8),
 
           Card(
@@ -97,15 +141,35 @@ class _SettingsPageState extends State<SettingsPage> {
                   leading: const Icon(Icons.sync),
                   title: const Text('Sincronizar ahora'),
                   subtitle: const Text('Sube los cambios locales a Firebase'),
-                  trailing: _isSyncing
+                  trailing: syncProvider.isSyncing
                       ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.chevron_right),
-                  onTap: _isSyncing ? null : _syncNow,
+                  onTap: syncProvider.isSyncing ? null : syncProvider.syncNow,
                 ),
+                if (syncProvider.failedCount > 0) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.refresh, color: Colors.orange),
+                    title: const Text('Reintentar registros fallidos',
+                        style: TextStyle(color: Colors.orange)),
+                    subtitle:
+                        Text('${syncProvider.failedCount} registros con error'),
+                    trailing: syncProvider.isSyncing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.chevron_right),
+                    onTap: syncProvider.isSyncing
+                        ? null
+                        : syncProvider.retrySyncFailed,
+                  ),
+                ],
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.info_outline),
@@ -125,8 +189,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 24),
           Text('Cuenta',
-              style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary)),
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(color: theme.colorScheme.primary)),
           const SizedBox(height: 8),
 
           Card(

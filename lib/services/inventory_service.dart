@@ -6,39 +6,93 @@ import '../models/lote_model.dart';
 import '../models/movimiento_model.dart';
 import '../utils/enums.dart';
 import 'firebase_service.dart';
+import 'sync_service.dart';
 
 class InventoryService {
   final AppDatabase _db;
   final FirebaseService _firebase;
+  final SyncService? _syncService;
   final _uuid = const Uuid();
 
-  InventoryService(this._db, this._firebase);
+  InventoryService(this._db, this._firebase, {SyncService? syncService})
+      : _syncService = syncService;
 
   // ─── Insumos ─────────────────────────────────────────────────────────────
+  // TODOS los métodos de lectura ahora leen de BD local, no de Firebase
 
+  /// Lee TODOS los insumos desde la BD local
   Future<List<InsumoModel>> getAllInsumos() async {
     final rows = await _db.insumosDao.getAllInsumos();
-    return rows.map(_dbToInsumo).toList();
+    return rows
+        .map((row) => InsumoModel(
+              id: row.id,
+              nombre: row.nombre,
+              descripcion: row.descripcion,
+              categoria: Categoria.fromString(row.categoria),
+              stockTotal: row.stockTotal,
+              stockMinimo: row.stockMinimo,
+              unidadMedida: UnidadMedida.fromString(row.unidadMedida),
+              estado: InsumoEstado.fromString(row.estado),
+              createdAt: row.createdAt,
+              updatedAt: row.updatedAt,
+              syncStatus: row.syncStatus,
+            ))
+        .toList();
   }
 
-  Stream<List<InsumoModel>> watchInsumos() =>
-      _db.insumosDao.watchAllInsumos().map((rows) => rows.map(_dbToInsumo).toList());
+  /// Stream de insumos desde BD local (actualiza cuando hay cambios locales)
+  Stream<List<InsumoModel>> watchInsumos() {
+    return _db.insumosDao.watchAllInsumos().map((rows) => rows
+        .map((row) => InsumoModel(
+              id: row.id,
+              nombre: row.nombre,
+              descripcion: row.descripcion,
+              categoria: Categoria.fromString(row.categoria),
+              stockTotal: row.stockTotal,
+              stockMinimo: row.stockMinimo,
+              unidadMedida: UnidadMedida.fromString(row.unidadMedida),
+              estado: InsumoEstado.fromString(row.estado),
+              createdAt: row.createdAt,
+              updatedAt: row.updatedAt,
+              syncStatus: row.syncStatus,
+            ))
+        .toList());
+  }
 
+  /// Obtiene un insumo específico desde BD local
   Future<InsumoModel?> getInsumoById(String id) async {
     final row = await _db.insumosDao.getInsumoById(id);
-    return row == null ? null : _dbToInsumo(row);
+    if (row == null) return null;
+    return InsumoModel(
+      id: row.id,
+      nombre: row.nombre,
+      descripcion: row.descripcion,
+      categoria: Categoria.fromString(row.categoria),
+      stockTotal: row.stockTotal,
+      stockMinimo: row.stockMinimo,
+      unidadMedida: UnidadMedida.fromString(row.unidadMedida),
+      estado: InsumoEstado.fromString(row.estado),
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      syncStatus: row.syncStatus,
+    );
   }
 
+  /// Busca insumos por nombre (BD local)
   Future<List<InsumoModel>> searchInsumos(String query) async {
-    final rows = await _db.insumosDao.searchInsumos(query);
-    return rows.map(_dbToInsumo).toList();
+    final all = await getAllInsumos();
+    return all
+        .where((i) => i.nombre.toLowerCase().contains(query.toLowerCase()))
+        .toList();
   }
 
+  /// Obtiene insumos con stock crítico (BD local)
   Future<List<InsumoModel>> getInsumosCriticos() async {
-    final rows = await _db.insumosDao.getInsumosCriticos();
-    return rows.map(_dbToInsumo).toList();
+    final all = await getAllInsumos();
+    return all.where((i) => i.isCritico).toList();
   }
 
+  /// Crea un insumo OFFLINE-FIRST: guarda local primero, luego Firebase
   Future<InsumoModel> createInsumo({
     required String nombre,
     required String descripcion,
@@ -48,8 +102,10 @@ class InventoryService {
     required UnidadMedida unidadMedida,
   }) async {
     final now = DateTime.now();
+    final id = _uuid.v4();
+
     final insumo = InsumoModel(
-      id: _uuid.v4(),
+      id: id,
       nombre: nombre,
       descripcion: descripcion,
       categoria: categoria,
@@ -58,9 +114,12 @@ class InventoryService {
       unidadMedida: unidadMedida,
       estado: InsumoEstado.activo,
       createdAt: now,
+      syncStatus: 'pending', // Marcar como pendiente de sincronizar
     );
+
+    // 1. Guardar en BD local PRIMERO
     await _db.insumosDao.insertInsumo(InsumosCompanion.insert(
-      id: insumo.id,
+      id: id,
       nombre: nombre,
       descripcion: descripcion,
       categoria: categoria.name,
@@ -71,12 +130,19 @@ class InventoryService {
       syncStatus: const Value('pending'),
       createdAt: now,
     ));
-    _trySyncInsumo(insumo);
+
+    // 2. Intentar sincronizar a Firebase (si hay conexión)
+    _trySync(id);
+
     return insumo;
   }
 
   Future<void> updateInsumo(InsumoModel insumo) async {
-    final updated = insumo.copyWith(updatedAt: DateTime.now());
+    final updated = insumo.copyWith(
+      updatedAt: DateTime.now(),
+      syncStatus: 'pending', // Marcar como pendiente
+    );
+
     await _db.insumosDao.updateInsumo(InsumosCompanion(
       id: Value(updated.id),
       nombre: Value(updated.nombre),
@@ -86,36 +152,64 @@ class InventoryService {
       stockMinimo: Value(updated.stockMinimo),
       unidadMedida: Value(updated.unidadMedida.name),
       estado: Value(updated.estado.name),
+      createdAt: Value(updated.createdAt),
       updatedAt: Value(updated.updatedAt),
       syncStatus: const Value('pending'),
     ));
-    _trySyncInsumo(updated);
+
+    _trySync(updated.id);
   }
 
   Future<void> deleteInsumo(String id) async {
     await _db.insumosDao.deleteInsumo(id);
-    try {
-      await _firebase.deleteInsumo(id);
-    } catch (_) {}
+    await _firebase.deleteInsumo(id).catchError((_) {});
   }
 
   // ─── Lotes ───────────────────────────────────────────────────────────────
 
+  /// Lee lotes de un insumo desde BD local
   Future<List<LoteModel>> getLotesByInsumo(String insumoId) async {
     final rows = await _db.lotesDao.getLotesByInsumo(insumoId);
-    return rows.map(_dbToLote).toList();
+    return rows
+        .map((row) => LoteModel(
+              id: row.id,
+              insumoId: row.insumoId,
+              numeroLote: row.numeroLote,
+              fechaIngreso: row.fechaIngreso,
+              fechaVencimiento: row.fechaVencimiento,
+              cantidad: row.cantidad,
+              proveedor: row.proveedor,
+              updatedAt: row.updatedAt,
+              syncStatus: row.syncStatus,
+            ))
+        .toList();
   }
 
-  Stream<List<LoteModel>> watchLotesByInsumo(String insumoId) =>
-      _db.lotesDao.watchLotesByInsumo(insumoId)
-          .map((rows) => rows.map(_dbToLote).toList());
+  /// Stream de lotes desde BD local
+  Stream<List<LoteModel>> watchLotesByInsumo(String insumoId) {
+    return _db.lotesDao.watchLotesByInsumo(insumoId).map((rows) => rows
+        .map((row) => LoteModel(
+              id: row.id,
+              insumoId: row.insumoId,
+              numeroLote: row.numeroLote,
+              fechaIngreso: row.fechaIngreso,
+              fechaVencimiento: row.fechaVencimiento,
+              cantidad: row.cantidad,
+              proveedor: row.proveedor,
+              updatedAt: row.updatedAt,
+              syncStatus: row.syncStatus,
+            ))
+        .toList());
+  }
 
-  /// Retorna lotes ordenados por FEFO (primero el que vence antes).
+  /// Obtiene lotes FEFO (primero vence primero) desde BD local
   Future<List<LoteModel>> getLotesFEFO(String insumoId) async {
-    final rows = await _db.lotesDao.getLotesFEFO(insumoId);
-    return rows.map(_dbToLote).toList();
+    final lotes = await getLotesByInsumo(insumoId);
+    lotes.sort((a, b) => a.fechaVencimiento.compareTo(b.fechaVencimiento));
+    return lotes;
   }
 
+  /// Agrega un lote OFFLINE-FIRST
   Future<LoteModel> addLote({
     required String insumoId,
     required String numeroLote,
@@ -124,17 +218,23 @@ class InventoryService {
     required int cantidad,
     required String proveedor,
   }) async {
+    final id = _uuid.v4();
+    final now = DateTime.now();
+
     final lote = LoteModel(
-      id: _uuid.v4(),
+      id: id,
       insumoId: insumoId,
       numeroLote: numeroLote,
       fechaIngreso: fechaIngreso,
       fechaVencimiento: fechaVencimiento,
       cantidad: cantidad,
       proveedor: proveedor,
+      syncStatus: 'pending',
     );
+
+    // 1. Guardar en BD local
     await _db.lotesDao.insertLote(LotesCompanion.insert(
-      id: lote.id,
+      id: id,
       insumoId: insumoId,
       numeroLote: numeroLote,
       fechaIngreso: fechaIngreso,
@@ -142,44 +242,84 @@ class InventoryService {
       cantidad: cantidad,
       proveedor: proveedor,
       syncStatus: const Value('pending'),
+      updatedAt: Value(now),
     ));
-    // Aumentar stock del insumo
-    final insumo = await _db.insumosDao.getInsumoById(insumoId);
+
+    // 2. Actualizar stock del insumo localmente
+    final insumo = await getInsumoById(insumoId);
     if (insumo != null) {
-      await _db.insumosDao.updateStock(
-          insumoId, insumo.stockTotal + cantidad);
+      await updateInsumo(insumo.copyWith(
+        stockTotal: insumo.stockTotal + cantidad,
+        syncStatus: 'pending',
+      ));
     }
-    _trySyncLote(lote);
+
+    // 3. Intentar sincronizar a Firebase
+    _trySync(id);
+
     return lote;
   }
 
+  /// Elimina un lote OFFLINE-FIRST
   Future<void> deleteLote(String id, String insumoId, int cantidad) async {
+    // 1. Eliminar de BD local
     await _db.lotesDao.deleteLote(id);
-    final insumo = await _db.insumosDao.getInsumoById(insumoId);
+
+    // 2. Actualizar stock del insumo
+    final insumo = await getInsumoById(insumoId);
     if (insumo != null) {
       final nuevoStock = (insumo.stockTotal - cantidad).clamp(0, 999999);
-      await _db.insumosDao.updateStock(insumoId, nuevoStock);
+      await updateInsumo(insumo.copyWith(
+        stockTotal: nuevoStock,
+        syncStatus: 'pending',
+      ));
     }
-    try {
-      await _firebase.deleteLote(id);
-    } catch (_) {}
+
+    // 3. Intentar eliminar de Firebase
+    await _firebase.deleteLote(id).catchError((_) {});
   }
 
   // ─── Movimientos ─────────────────────────────────────────────────────────
 
-  Future<List<MovimientoModel>> getMovimientosByInsumo(
-      String insumoId) async {
+  /// Lee movimientos de un insumo desde BD local
+  Future<List<MovimientoModel>> getMovimientosByInsumo(String insumoId) async {
     final rows = await _db.movimientosDao.getMovimientosByInsumo(insumoId);
-    return rows.map(_dbToMovimiento).toList();
+    return rows
+        .map((row) => MovimientoModel(
+              id: row.id,
+              insumoId: row.insumoId,
+              loteId: row.loteId,
+              tipo: MovimientoTipo.fromString(row.tipo),
+              cantidad: row.cantidad,
+              responsableId: row.responsableId,
+              responsableNombre: row.responsableNombre,
+              observaciones: row.observaciones,
+              fecha: row.fecha,
+              syncStatus: row.syncStatus,
+            ))
+        .toList();
   }
 
+  /// Obtiene movimientos recientes desde BD local
   Future<List<MovimientoModel>> getRecentMovimientos({int limit = 10}) async {
-    final rows =
-        await _db.movimientosDao.getRecentMovimientos(limit: limit);
-    return rows.map(_dbToMovimiento).toList();
+    final rows = await _db.movimientosDao.getRecentMovimientos(limit: limit);
+    return rows
+        .map((row) => MovimientoModel(
+              id: row.id,
+              insumoId: row.insumoId,
+              loteId: row.loteId,
+              tipo: MovimientoTipo.fromString(row.tipo),
+              cantidad: row.cantidad,
+              responsableId: row.responsableId,
+              responsableNombre: row.responsableNombre,
+              observaciones: row.observaciones,
+              fecha: row.fecha,
+              syncStatus: row.syncStatus,
+            ))
+        .toList();
   }
 
-  /// Registra un movimiento aplicando FEFO para salidas.
+  /// Registra un movimiento OFFLINE-FIRST
   Future<void> registrarMovimiento({
     required String insumoId,
     required MovimientoTipo tipo,
@@ -189,36 +329,46 @@ class InventoryService {
     String observaciones = '',
   }) async {
     final now = DateTime.now();
+    final id = _uuid.v4();
     String? loteIdUsado;
 
+    // Si es salida, descontar de lotes FEFO
+    //  SOLUCIÓN: Pasar todos los campos para evitar el InvalidDataException
     if (tipo == MovimientoTipo.salida) {
-      // Aplicar FEFO: descontar del lote que vence primero
-      final lotes = await _db.lotesDao.getLotesFEFO(insumoId);
+      final lotes = await getLotesFEFO(insumoId);
       int restante = cantidad;
+
       for (final lote in lotes) {
         if (restante <= 0) break;
-        if (lote.cantidad <= 0) continue;
+
         loteIdUsado = lote.id;
         final descontar = restante.clamp(0, lote.cantidad);
-        await _db.lotesDao.updateCantidad(lote.id, lote.cantidad - descontar);
+
+        final nuevoLote = lote.copyWith(
+          cantidad: lote.cantidad - descontar,
+          syncStatus: 'pending',
+        );
+
+        //  Modificamos el Companion para que incluya los campos requeridos
+        await _db.lotesDao.updateLote(LotesCompanion(
+          id: Value(lote.id),
+          insumoId: Value(lote.insumoId),
+          numeroLote: Value(lote.numeroLote),
+          fechaIngreso: Value(lote.fechaIngreso),
+          fechaVencimiento: Value(lote.fechaVencimiento),
+          proveedor: Value(lote.proveedor),
+          cantidad: Value(nuevoLote.cantidad),
+          syncStatus: const Value('pending'),
+          updatedAt: Value(DateTime.now()),
+        ));
+
         restante -= descontar;
       }
     }
 
-    final mov = MovimientoModel(
-      id: _uuid.v4(),
-      insumoId: insumoId,
-      loteId: loteIdUsado,
-      tipo: tipo,
-      cantidad: cantidad,
-      responsableId: responsableId,
-      responsableNombre: responsableNombre,
-      observaciones: observaciones,
-      fecha: now,
-    );
-
+    // 1. Guardar movimiento en BD local (Insert directo usando Companion)
     await _db.movimientosDao.insertMovimiento(MovimientosCompanion.insert(
-      id: mov.id,
+      id: id,
       insumoId: insumoId,
       loteId: Value(loteIdUsado),
       tipo: tipo.name,
@@ -230,78 +380,31 @@ class InventoryService {
       syncStatus: const Value('pending'),
     ));
 
-    // Actualizar stock total del insumo
-    final insumo = await _db.insumosDao.getInsumoById(insumoId);
+    // 2. Actualizar stock del insumo de forma segura
+    final insumo = await getInsumoById(insumoId);
     if (insumo != null) {
       int nuevoStock = insumo.stockTotal;
       if (tipo == MovimientoTipo.entrada) nuevoStock += cantidad;
       if (tipo == MovimientoTipo.salida) {
         nuevoStock = (nuevoStock - cantidad).clamp(0, 999999);
       }
-      await _db.insumosDao.updateStock(insumoId, nuevoStock);
+
+      // Tu método updateInsumo ya le clava el syncStatus 'pending' internamente
+      await updateInsumo(insumo.copyWith(
+        stockTotal: nuevoStock,
+      ));
     }
 
-    _trySyncMovimiento(mov);
+    // 3. Intentar sincronizar a Firebase
+    _trySync(id);
   }
 
-  // ─── Sync helpers ────────────────────────────────────────────────────────
+  // ─── Helper Methods ──────────────────────────────────────────────────────
 
-  void _trySyncInsumo(InsumoModel insumo) async {
-    try {
-      await _firebase.saveInsumo(insumo);
-      await _db.insumosDao.markAsSynced(insumo.id);
-    } catch (_) {}
+  /// Intenta sincronizar un registro a Firebase (sin esperar)
+  Future<void> _trySync(String recordId) async {
+    if (_syncService == null) return;
+    // Llamar sin await para no bloquear la UI
+    _syncService!.syncAll().catchError((_) {});
   }
-
-  void _trySyncLote(LoteModel lote) async {
-    try {
-      await _firebase.saveLote(lote);
-      await _db.lotesDao.markAsSynced(lote.id);
-    } catch (_) {}
-  }
-
-  void _trySyncMovimiento(MovimientoModel mov) async {
-    try {
-      await _firebase.saveMovimiento(mov);
-      await _db.movimientosDao.markAsSynced(mov.id);
-    } catch (_) {}
-  }
-
-  // ─── Mappers ─────────────────────────────────────────────────────────────
-
-  InsumoModel _dbToInsumo(DbInsumo row) => InsumoModel(
-        id: row.id,
-        nombre: row.nombre,
-        descripcion: row.descripcion,
-        categoria: Categoria.fromString(row.categoria),
-        stockTotal: row.stockTotal,
-        stockMinimo: row.stockMinimo,
-        unidadMedida: UnidadMedida.fromString(row.unidadMedida),
-        estado: InsumoEstado.fromString(row.estado),
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      );
-
-  LoteModel _dbToLote(DbLote row) => LoteModel(
-        id: row.id,
-        insumoId: row.insumoId,
-        numeroLote: row.numeroLote,
-        fechaIngreso: row.fechaIngreso,
-        fechaVencimiento: row.fechaVencimiento,
-        cantidad: row.cantidad,
-        proveedor: row.proveedor,
-        updatedAt: row.updatedAt,
-      );
-
-  MovimientoModel _dbToMovimiento(DbMovimiento row) => MovimientoModel(
-        id: row.id,
-        insumoId: row.insumoId,
-        loteId: row.loteId,
-        tipo: MovimientoTipo.fromString(row.tipo),
-        cantidad: row.cantidad,
-        responsableId: row.responsableId,
-        responsableNombre: row.responsableNombre,
-        observaciones: row.observaciones,
-        fecha: row.fecha,
-      );
 }

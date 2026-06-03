@@ -18,7 +18,6 @@ class _LoginPageState extends State<LoginPage> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _showPassword = false;
-  bool _showResetDialog = false;
 
   @override
   void dispose() {
@@ -75,7 +74,6 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final theme = Theme.of(context);
-    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       body: Center(

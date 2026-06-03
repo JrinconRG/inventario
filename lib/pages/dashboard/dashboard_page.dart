@@ -65,6 +65,12 @@ class _DashboardPageState extends State<DashboardPage> {
     final theme = Theme.of(context);
     final width = MediaQuery.of(context).size.width;
     final isWide = width >= AppConstants.tabletBreakpoint;
+    final pendientes = auth.isDocente
+        ? sol
+            .getMisSolicitudes(auth.usuario?.id ?? '', applyFilter: false)
+            .where((s) => s.estado == SolicitudEstado.pendiente)
+            .length
+        : sol.pendientesCount;
 
     return Scaffold(
       appBar: AppBar(
@@ -100,7 +106,7 @@ class _DashboardPageState extends State<DashboardPage> {
               _StatsGrid(
                 totalInsumos: inv.totalInsumos,
                 stockCritico: inv.stockCriticoCount,
-                pendientes: sol.pendientesCount,
+                pendientes: pendientes,
                 alertas: _alertas.length,
                 isWide: isWide,
               ),
@@ -246,7 +252,7 @@ class _StatsGrid extends StatelessWidget {
             .map((c) => Expanded(
                     child: Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: SizedBox(height: 140, child: c),
+                  child: c,
                 )))
             .toList(),
       );
@@ -258,7 +264,7 @@ class _StatsGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 1.3,
+      childAspectRatio: 1.1,
       children: cards,
     );
   }

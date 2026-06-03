@@ -9,15 +9,13 @@ class SolicitudesDao extends DatabaseAccessor<AppDatabase>
     with _$SolicitudesDaoMixin {
   SolicitudesDao(super.db);
 
-  Future<List<DbSolicitud>> getAllSolicitudes() =>
-      (select(solicitudes)
-            ..orderBy([(s) => OrderingTerm.desc(s.fechaSolicitud)]))
-          .get();
+  Future<List<DbSolicitud>> getAllSolicitudes() => (select(solicitudes)
+        ..orderBy([(s) => OrderingTerm.desc(s.fechaSolicitud)]))
+      .get();
 
-  Stream<List<DbSolicitud>> watchAllSolicitudes() =>
-      (select(solicitudes)
-            ..orderBy([(s) => OrderingTerm.desc(s.fechaSolicitud)]))
-          .watch();
+  Stream<List<DbSolicitud>> watchAllSolicitudes() => (select(solicitudes)
+        ..orderBy([(s) => OrderingTerm.desc(s.fechaSolicitud)]))
+      .watch();
 
   Future<List<DbSolicitud>> getSolicitudesByEstado(String estado) =>
       (select(solicitudes)
@@ -48,11 +46,20 @@ class SolicitudesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<DbSolicitud>> getPendingSync() =>
-      (select(solicitudes)
-            ..where((s) => s.syncStatus.equals('pending')))
-          .get();
+      (select(solicitudes)..where((s) => s.syncStatus.equals('pending'))).get();
+
+  Future<List<DbSolicitud>> getFailedSync() =>
+      (select(solicitudes)..where((s) => s.syncStatus.equals('failed'))).get();
 
   Future<void> markAsSynced(String id) =>
       (update(solicitudes)..where((s) => s.id.equals(id)))
           .write(const SolicitudesCompanion(syncStatus: Value('synced')));
+
+  Future<void> markAsFailed(String id) =>
+      (update(solicitudes)..where((s) => s.id.equals(id)))
+          .write(const SolicitudesCompanion(syncStatus: Value('failed')));
+
+  Future<void> markAsPending(String id) =>
+      (update(solicitudes)..where((s) => s.id.equals(id)))
+          .write(const SolicitudesCompanion(syncStatus: Value('pending')));
 }

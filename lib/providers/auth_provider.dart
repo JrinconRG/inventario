@@ -25,10 +25,17 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   UserRole get userRole => _usuario?.rol ?? UserRole.docente;
+  AccountStatus get accountStatus =>
+      _usuario?.estadoCuenta ?? AccountStatus.pendingApproval;
   bool get isAdmin => userRole == UserRole.administrador;
+  bool get isDocente => userRole == UserRole.docente;
+  bool get isAccountActive => accountStatus == AccountStatus.active;
+  bool get isAccountPendingApproval =>
+      accountStatus == AccountStatus.pendingApproval;
+  bool get isAccountBlocked => accountStatus == AccountStatus.blocked;
+  bool get canCreateSolicitudes => isDocente && isAccountActive;
   bool get canManage =>
-      userRole == UserRole.administrador ||
-      userRole == UserRole.laboratorista;
+      userRole == UserRole.administrador || userRole == UserRole.laboratorista;
 
   void _listenToAuthChanges() {
     _authSub = _authService.authStateChanges.listen((firebaseUser) async {

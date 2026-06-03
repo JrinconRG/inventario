@@ -67,6 +67,30 @@ class FirebaseService {
         .toList();
   }
 
+  Stream<List<LoteModel>> watchLotesByInsumo(String insumoId) => _db
+      .collection(AppConstants.colLots)
+      .where('insumoId', isEqualTo: insumoId)
+      .snapshots()
+      .map((snap) => snap.docs
+          .map((d) => LoteModel.fromMap({'id': d.id, ...d.data()}))
+          .toList());
+
+  Future<List<LoteModel>> getLotesFEFO(String insumoId) async {
+    final lotes = await getLotesByInsumo(insumoId);
+    final activos = lotes.where((l) => l.cantidad > 0).toList();
+    activos.sort((a, b) => a.fechaVencimiento.compareTo(b.fechaVencimiento));
+    return activos;
+  }
+
+  Future<void> updateLoteCantidad(String id, int cantidad) =>
+      _db.collection(AppConstants.colLots).doc(id).update({'cantidad': cantidad});
+
+  Future<void> updateInsumoStock(String id, int stockTotal) =>
+      _db.collection(AppConstants.colInventory).doc(id).update({
+        'stockTotal': stockTotal,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
   Future<List<LoteModel>> getAllLotes() async {
     final snap = await _db.collection(AppConstants.colLots).get();
     return snap.docs
@@ -111,6 +135,12 @@ class FirebaseService {
       .doc(s.id)
       .set(s.toMap(), SetOptions(merge: true));
 
+  Future<SolicitudModel?> getSolicitudById(String id) async {
+    final doc = await _db.collection(AppConstants.colRequests).doc(id).get();
+    if (!doc.exists) return null;
+    return SolicitudModel.fromMap({'id': doc.id, ...doc.data()!});
+  }
+
   Future<List<SolicitudModel>> getAllSolicitudes() async {
     final snap = await _db
         .collection(AppConstants.colRequests)
@@ -119,6 +149,37 @@ class FirebaseService {
     return snap.docs
         .map((d) => SolicitudModel.fromMap({'id': d.id, ...d.data()}))
         .toList();
+  }
+
+  Future<List<SolicitudModel>> getSolicitudesByEstado(String estado) async {
+    final snap = await _db
+        .collection(AppConstants.colRequests)
+        .where('estado', isEqualTo: estado)
+        .orderBy('fechaSolicitud', descending: true)
+        .get();
+    return snap.docs
+        .map((d) => SolicitudModel.fromMap({'id': d.id, ...d.data()}))
+        .toList();
+  }
+
+  Future<List<SolicitudModel>> getSolicitudesByUser(String userId) async {
+    final snap = await _db
+        .collection(AppConstants.colRequests)
+        .where('solicitanteId', isEqualTo: userId)
+        .orderBy('fechaSolicitud', descending: true)
+        .get();
+    return snap.docs
+        .map((d) => SolicitudModel.fromMap({'id': d.id, ...d.data()}))
+        .toList();
+  }
+
+  Future<int> countSolicitudesPendientes() async {
+    final snap = await _db
+        .collection(AppConstants.colRequests)
+        .where('estado', isEqualTo: 'pendiente')
+        .count()
+        .get();
+    return snap.count ?? 0;
   }
 
   Stream<List<SolicitudModel>> watchSolicitudes() => _db
@@ -135,6 +196,50 @@ class FirebaseService {
       .collection(AppConstants.colAlerts)
       .doc(a.id)
       .set(a.toMap(), SetOptions(merge: true));
+
+  Future<void> deleteAlerta(String id) =>
+      _db.collection(AppConstants.colAlerts).doc(id).delete();
+
+  Future<void> markAlertaAsRead(String id) =>
+      _db.collection(AppConstants.colAlerts).doc(id).update({'leida': true});
+
+  Future<void> markAllAlertasAsRead() async {
+    final snap = await _db
+        .collection(AppConstants.colAlerts)
+        .where('leida', isEqualTo: false)
+        .get();
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'leida': true});
+    }
+    await batch.commit();
+  }
+
+  Future<int> countUnreadAlertas() async {
+    final snap = await _db
+        .collection(AppConstants.colAlerts)
+        .where('leida', isEqualTo: false)
+        .count()
+        .get();
+    return snap.count ?? 0;
+  }
+
+  Stream<List<AlertaModel>> watchAlertas() => _db
+      .collection(AppConstants.colAlerts)
+      .orderBy('fechaCreacion', descending: true)
+      .snapshots()
+      .map((snap) => snap.docs
+          .map((d) => AlertaModel.fromMap({'id': d.id, ...d.data()}))
+          .toList());
+
+  Stream<List<AlertaModel>> watchUnreadAlertas() => _db
+      .collection(AppConstants.colAlerts)
+      .where('leida', isEqualTo: false)
+      .orderBy('fechaCreacion', descending: true)
+      .snapshots()
+      .map((snap) => snap.docs
+          .map((d) => AlertaModel.fromMap({'id': d.id, ...d.data()}))
+          .toList());
 
   Future<List<AlertaModel>> getAllAlertas() async {
     final snap = await _db

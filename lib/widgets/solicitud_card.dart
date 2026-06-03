@@ -3,6 +3,7 @@ import '../models/solicitud_model.dart';
 import '../utils/enums.dart';
 import '../utils/helpers.dart';
 import '../utils/date_formatter.dart';
+import 'sync_status_badge.dart';
 
 class SolicitudCard extends StatelessWidget {
   final SolicitudModel solicitud;
@@ -45,20 +46,27 @@ class SolicitudCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      solicitud.estado.displayName,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w600,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          solicitud.estado.displayName,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 6),
+                      SyncStatusBadge(syncStatus: solicitud.syncStatus, showLabel: false),
+                    ],
                   ),
                 ],
               ),

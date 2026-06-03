@@ -8,6 +8,7 @@ import '../../utils/enums.dart';
 import '../../widgets/custom_input.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/stock_card.dart';
+import '../../services/sync_service.dart';
 
 class InventoryPage extends StatelessWidget {
   const InventoryPage({super.key});
@@ -22,6 +23,24 @@ class InventoryPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Inventario'),
         actions: [
+          IconButton(
+            tooltip: 'Refrescar datos remotos',
+            onPressed: () async {
+              try {
+                final sync = context.read<SyncService>();
+                if (await sync.isOnline()) {
+                  await sync.syncAll();
+                  // Después de sincronizar, recargar movimientos recientes
+                  await context
+                      .read<InventoryProvider>()
+                      .loadRecentMovimientos();
+                }
+              } catch (e) {
+                // mostrar snackbar o ignorar; preferimos no romper la UI
+              }
+            },
+            icon: const Icon(Icons.refresh),
+          ),
           if (auth.canManage)
             FilledButton.icon(
               onPressed: () => context.go('/inventory/add'),
@@ -62,8 +81,7 @@ class InventoryPage extends StatelessWidget {
           // Category chips
           if (inv.categoriaFilter != null)
             Padding(
-              padding: const EdgeInsets.only(
-                  left: 16, right: 16, bottom: 8),
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
               child: Row(
                 children: [
                   Chip(
@@ -76,8 +94,8 @@ class InventoryPage extends StatelessWidget {
 
           // Results count
           Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppConstants.paddingM),
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppConstants.paddingM),
             child: Row(
               children: [
                 Text(
@@ -119,11 +137,11 @@ class InventoryPage extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 8),
                             child: StockCard(
                               insumo: insumo,
-                              onTap: () => context
-                                  .go('/inventory/${insumo.id}/lotes'),
+                              onTap: () =>
+                                  context.go('/inventory/${insumo.id}/lotes'),
                               onEdit: auth.canManage
-                                  ? () => context.go(
-                                      '/inventory/edit/${insumo.id}')
+                                  ? () =>
+                                      context.go('/inventory/edit/${insumo.id}')
                                   : null,
                               onDelete: auth.isAdmin
                                   ? () =>
@@ -143,16 +161,16 @@ class InventoryPage extends StatelessWidget {
       BuildContext context, InventoryProvider inv, String id) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('Eliminar insumo'),
         content: const Text(
             '¿Estás seguro? Se eliminarán también sus lotes y movimientos.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(dialogCtx, false),
               child: const Text('Cancelar')),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogCtx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Eliminar'),
           ),

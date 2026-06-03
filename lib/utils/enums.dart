@@ -22,6 +22,30 @@ enum UserRole {
   }
 }
 
+enum AccountStatus {
+  pendingApproval,
+  active,
+  blocked;
+
+  String get displayName {
+    switch (this) {
+      case AccountStatus.pendingApproval:
+        return 'Cuenta pendiente de aprobación';
+      case AccountStatus.active:
+        return 'Activo';
+      case AccountStatus.blocked:
+        return 'Bloqueado';
+    }
+  }
+
+  static AccountStatus fromString(String value) {
+    return AccountStatus.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => AccountStatus.active,
+    );
+  }
+}
+
 enum InsumoEstado {
   activo,
   inactivo,
@@ -38,9 +62,8 @@ enum InsumoEstado {
     }
   }
 
-  static InsumoEstado fromString(String value) =>
-      InsumoEstado.values.firstWhere((e) => e.name == value,
-          orElse: () => InsumoEstado.activo);
+  static InsumoEstado fromString(String value) => InsumoEstado.values
+      .firstWhere((e) => e.name == value, orElse: () => InsumoEstado.activo);
 }
 
 enum MovimientoTipo {
@@ -59,9 +82,8 @@ enum MovimientoTipo {
     }
   }
 
-  static MovimientoTipo fromString(String value) =>
-      MovimientoTipo.values.firstWhere((e) => e.name == value,
-          orElse: () => MovimientoTipo.entrada);
+  static MovimientoTipo fromString(String value) => MovimientoTipo.values
+      .firstWhere((e) => e.name == value, orElse: () => MovimientoTipo.entrada);
 }
 
 enum SolicitudEstado {
@@ -101,9 +123,8 @@ enum AlertaTipo {
     }
   }
 
-  static AlertaTipo fromString(String value) =>
-      AlertaTipo.values.firstWhere((e) => e.name == value,
-          orElse: () => AlertaTipo.stockBajo);
+  static AlertaTipo fromString(String value) => AlertaTipo.values
+      .firstWhere((e) => e.name == value, orElse: () => AlertaTipo.stockBajo);
 }
 
 enum Categoria {
@@ -128,9 +149,8 @@ enum Categoria {
     }
   }
 
-  static Categoria fromString(String value) =>
-      Categoria.values.firstWhere((e) => e.name == value,
-          orElse: () => Categoria.otro);
+  static Categoria fromString(String value) => Categoria.values
+      .firstWhere((e) => e.name == value, orElse: () => Categoria.otro);
 }
 
 enum UnidadMedida {
@@ -161,9 +181,8 @@ enum UnidadMedida {
     }
   }
 
-  static UnidadMedida fromString(String value) =>
-      UnidadMedida.values.firstWhere((e) => e.name == value,
-          orElse: () => UnidadMedida.unidad);
+  static UnidadMedida fromString(String value) => UnidadMedida.values
+      .firstWhere((e) => e.name == value, orElse: () => UnidadMedida.unidad);
 }
 
 enum SyncStatus { synced, pending, error }

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/alerta_model.dart';
 import '../../services/alert_service.dart';
+import '../../services/sync_service.dart';
 import '../../utils/enums.dart';
-import '../../utils/helpers.dart';
 import '../../widgets/alert_banner.dart';
 import '../../widgets/loading_widget.dart';
 
@@ -42,18 +42,25 @@ class AlertsPage extends StatelessWidget {
           }
 
           // Group by type
-          final stockBajo = alertas
-              .where((a) => a.tipo == AlertaTipo.stockBajo)
-              .toList();
-          final vencidos = alertas
-              .where((a) => a.tipo == AlertaTipo.loteVencido)
-              .toList();
+          final stockBajo =
+              alertas.where((a) => a.tipo == AlertaTipo.stockBajo).toList();
+          final vencidos =
+              alertas.where((a) => a.tipo == AlertaTipo.loteVencido).toList();
           final proximos = alertas
               .where((a) => a.tipo == AlertaTipo.loteProximoVencer)
               .toList();
 
           return RefreshIndicator(
-            onRefresh: () async {},
+            onRefresh: () async {
+              try {
+                final sync = context.read<SyncService>();
+                if (await sync.isOnline()) {
+                  await sync.syncAll();
+                }
+              } catch (e) {
+                // Silenciar: la UI seguirá mostrando datos locales
+              }
+            },
             child: ListView(
               children: [
                 if (vencidos.isNotEmpty) ...[
@@ -121,9 +128,9 @@ class _SectionHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.bold,
-            ),
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                ),
           ),
         ],
       ),

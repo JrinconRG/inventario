@@ -82,7 +82,7 @@ class InventoryProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      await _service.createInsumo(
+      final insumo = await _service.createInsumo(
         nombre: nombre,
         descripcion: descripcion,
         categoria: categoria,
@@ -90,8 +90,11 @@ class InventoryProvider extends ChangeNotifier {
         stockMinimo: stockMinimo,
         unidadMedida: unidadMedida,
       );
+      _insumos = [..._insumos, insumo];
+      notifyListeners();
     } catch (e) {
       _error = e.toString();
+      rethrow;
     } finally {
       _setLoading(false);
     }
@@ -101,8 +104,13 @@ class InventoryProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       await _service.updateInsumo(insumo);
+      _insumos = [
+        for (final i in _insumos) i.id == insumo.id ? insumo : i,
+      ];
+      notifyListeners();
     } catch (e) {
       _error = e.toString();
+      rethrow;
     } finally {
       _setLoading(false);
     }
@@ -112,8 +120,11 @@ class InventoryProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       await _service.deleteInsumo(id);
+      _insumos = _insumos.where((i) => i.id != id).toList();
+      notifyListeners();
     } catch (e) {
       _error = e.toString();
+      rethrow;
     } finally {
       _setLoading(false);
     }

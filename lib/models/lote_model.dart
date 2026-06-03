@@ -7,6 +7,7 @@ class LoteModel {
   final int cantidad;
   final String proveedor;
   final DateTime? updatedAt;
+  final String syncStatus; // 'synced', 'pending', 'failed'
 
   const LoteModel({
     required this.id,
@@ -17,6 +18,7 @@ class LoteModel {
     required this.cantidad,
     required this.proveedor,
     this.updatedAt,
+    this.syncStatus = 'pending',
   });
 
   bool get isVencido => fechaVencimiento.isBefore(DateTime.now());
@@ -26,8 +28,7 @@ class LoteModel {
     return fechaVencimiento.isBefore(limite) && !isVencido;
   }
 
-  int get diasParaVencer =>
-      fechaVencimiento.difference(DateTime.now()).inDays;
+  int get diasParaVencer => fechaVencimiento.difference(DateTime.now()).inDays;
 
   LoteModel copyWith({
     String? id,
@@ -38,6 +39,7 @@ class LoteModel {
     int? cantidad,
     String? proveedor,
     DateTime? updatedAt,
+    String? syncStatus,
   }) {
     return LoteModel(
       id: id ?? this.id,
@@ -48,6 +50,7 @@ class LoteModel {
       cantidad: cantidad ?? this.cantidad,
       proveedor: proveedor ?? this.proveedor,
       updatedAt: updatedAt ?? this.updatedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -60,6 +63,7 @@ class LoteModel {
         'cantidad': cantidad,
         'proveedor': proveedor,
         'updatedAt': updatedAt?.toIso8601String(),
+        'syncStatus': syncStatus,
       };
 
   factory LoteModel.fromMap(Map<String, dynamic> map) => LoteModel(
@@ -73,5 +77,6 @@ class LoteModel {
         updatedAt: map['updatedAt'] != null
             ? DateTime.parse(map['updatedAt'] as String)
             : null,
+        syncStatus: map['syncStatus'] as String? ?? 'pending',
       );
 }

@@ -8,6 +8,7 @@ import 'data/app_database.dart';
 import 'providers/auth_provider.dart';
 import 'providers/inventory_provider.dart';
 import 'providers/solicitud_provider.dart';
+import 'providers/sync_provider.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_service.dart';
 import 'services/inventory_service.dart';
@@ -64,14 +65,18 @@ class _LabInventoryAppState extends State<LabInventoryApp> {
         Provider<SyncService>(create: (_) => _syncService),
 
         // Business services
-        ProxyProvider2<AppDatabase, FirebaseService, InventoryService>(
-          update: (_, db, firebase, __) => InventoryService(db, firebase),
+        ProxyProvider3<AppDatabase, FirebaseService, SyncService,
+            InventoryService>(
+          update: (_, db, firebase, syncService, __) =>
+              InventoryService(db, firebase, syncService: syncService),
         ),
-        ProxyProvider2<AppDatabase, FirebaseService, SolicitudService>(
-          update: (_, db, firebase, __) => SolicitudService(db, firebase),
+        ProxyProvider3<FirebaseService, AppDatabase, SyncService,
+            SolicitudService>(
+          update: (_, firebase, db, syncService, __) =>
+              SolicitudService(firebase, db, syncService),
         ),
-        ProxyProvider<AppDatabase, AlertService>(
-          update: (_, db, __) => AlertService(db),
+        ProxyProvider<FirebaseService, AlertService>(
+          update: (_, firebase, __) => AlertService(firebase),
         ),
 
         // State providers
@@ -86,6 +91,14 @@ class _LabInventoryAppState extends State<LabInventoryApp> {
         ChangeNotifierProxyProvider<SolicitudService, SolicitudProvider>(
           create: (ctx) => SolicitudProvider(ctx.read<SolicitudService>()),
           update: (_, svc, prev) => prev ?? SolicitudProvider(svc),
+        ),
+        ChangeNotifierProxyProvider2<SyncService, AppDatabase, SyncProvider>(
+          create: (ctx) => SyncProvider(
+            ctx.read<SyncService>(),
+            ctx.read<AppDatabase>(),
+          ),
+          update: (_, syncService, db, prev) =>
+              prev ?? SyncProvider(syncService, db),
         ),
       ],
       child: Consumer<AuthProvider>(

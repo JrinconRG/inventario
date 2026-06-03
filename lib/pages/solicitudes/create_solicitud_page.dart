@@ -10,6 +10,7 @@ import '../../utils/helpers.dart';
 import '../../validators/solicitud_validator.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_input.dart';
+import '../../widgets/loading_widget.dart';
 
 class CreateSolicitudPage extends StatefulWidget {
   const CreateSolicitudPage({super.key});
@@ -33,13 +34,21 @@ class _CreateSolicitudPageState extends State<CreateSolicitudPage> {
   }
 
   Future<void> _submit() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.canCreateSolicitudes) {
+      Helpers.showSnackBar(
+        context,
+        'Solo los docentes pueden crear solicitudes',
+        isError: true,
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (_insumoSeleccionado == null) {
       Helpers.showSnackBar(context, 'Selecciona un insumo', isError: true);
       return;
     }
     setState(() => _isLoading = true);
-    final auth = context.read<AuthProvider>();
     try {
       await context.read<SolicitudProvider>().createSolicitud(
             insumoId: _insumoSeleccionado!.id,
@@ -62,10 +71,20 @@ class _CreateSolicitudPageState extends State<CreateSolicitudPage> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    if (!auth.canCreateSolicitudes) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Nueva solicitud')),
+        body: const EmptyStateWidget(
+          icon: Icons.lock_outline,
+          title: 'Acceso restringido',
+          subtitle: 'Solo los docentes pueden crear solicitudes',
+        ),
+      );
+    }
+
     final inv = context.watch<InventoryProvider>();
-    final insumos = inv.allInsumos
-        .where((i) => i.stockTotal > 0)
-        .toList();
+    final insumos = inv.allInsumos.where((i) => i.stockTotal > 0).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Nueva solicitud')),
@@ -86,8 +105,7 @@ class _CreateSolicitudPageState extends State<CreateSolicitudPage> {
                       '${i.nombre} (Stock: ${i.stockTotal} ${i.unidadMedida.displayName})',
                   prefixIcon: Icons.science,
                   onChanged: (v) => setState(() => _insumoSeleccionado = v),
-                  validator: (v) =>
-                      v == null ? 'Selecciona un insumo' : null,
+                  validator: (v) => v == null ? 'Selecciona un insumo' : null,
                 ),
                 if (_insumoSeleccionado != null) ...[
                   const SizedBox(height: 8),

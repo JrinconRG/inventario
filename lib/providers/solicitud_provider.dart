@@ -79,11 +79,17 @@ class SolicitudProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      await _service.aprobarSolicitud(id,
-          observaciones: observaciones,
-          inventoryService: inventoryService,
-          adminId: adminId,
-          adminNombre: adminNombre);
+      // Llamamos directamente al método de tu servicio con todos sus parámetros
+      await _service.aprobarSolicitud(
+        id,
+        observaciones: observaciones,
+        inventoryService: inventoryService,
+        adminId: adminId,
+        adminNombre: adminNombre,
+      );
+
+      // Limpiamos errores previos si la operación fue exitosa
+      clearError();
     } catch (e) {
       _error = e.toString();
       rethrow;
@@ -92,11 +98,11 @@ class SolicitudProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> rechazar(String id,
-      {required String observaciones}) async {
+  Future<void> rechazar(String id, {required String observaciones}) async {
     _setLoading(true);
     try {
       await _service.rechazarSolicitud(id, observaciones: observaciones);
+      clearError();
     } catch (e) {
       _error = e.toString();
       rethrow;
@@ -105,8 +111,21 @@ class SolicitudProvider extends ChangeNotifier {
     }
   }
 
-  List<SolicitudModel> getMisSolicitudes(String userId) =>
-      _solicitudes.where((s) => s.solicitanteId == userId).toList();
+  List<SolicitudModel> getMisSolicitudes(
+    String userId, {
+    bool applyFilter = true,
+  }) {
+    final source = applyFilter ? _filtered : _solicitudes;
+    return source.where((s) => s.solicitanteId == userId).toList();
+  }
+
+  SolicitudModel? getSolicitudById(String id) {
+    try {
+      return _solicitudes.firstWhere((s) => s.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
 
   void setFilter(SolicitudEstado? estado) {
     _estadoFilter = estado;

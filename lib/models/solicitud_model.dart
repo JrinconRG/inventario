@@ -12,6 +12,7 @@ class SolicitudModel {
   final String? observacionesAdmin;
   final DateTime fechaSolicitud;
   final DateTime? fechaRespuesta;
+  final String syncStatus; // 'pending', 'synced', 'failed'
 
   const SolicitudModel({
     required this.id,
@@ -25,6 +26,7 @@ class SolicitudModel {
     this.observacionesAdmin,
     required this.fechaSolicitud,
     this.fechaRespuesta,
+    this.syncStatus = 'pending',
   });
 
   SolicitudModel copyWith({
@@ -39,6 +41,7 @@ class SolicitudModel {
     String? observacionesAdmin,
     DateTime? fechaSolicitud,
     DateTime? fechaRespuesta,
+    String? syncStatus,
   }) {
     return SolicitudModel(
       id: id ?? this.id,
@@ -52,6 +55,7 @@ class SolicitudModel {
       observacionesAdmin: observacionesAdmin ?? this.observacionesAdmin,
       fechaSolicitud: fechaSolicitud ?? this.fechaSolicitud,
       fechaRespuesta: fechaRespuesta ?? this.fechaRespuesta,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -67,6 +71,7 @@ class SolicitudModel {
         'observacionesAdmin': observacionesAdmin,
         'fechaSolicitud': fechaSolicitud.toIso8601String(),
         'fechaRespuesta': fechaRespuesta?.toIso8601String(),
+        'syncStatus': syncStatus,
       };
 
   factory SolicitudModel.fromMap(Map<String, dynamic> map) => SolicitudModel(
@@ -83,5 +88,6 @@ class SolicitudModel {
         fechaRespuesta: map['fechaRespuesta'] != null
             ? DateTime.parse(map['fechaRespuesta'] as String)
             : null,
+        syncStatus: map['syncStatus'] as String? ?? 'pending',
       );
 }

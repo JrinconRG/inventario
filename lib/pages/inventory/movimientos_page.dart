@@ -10,6 +10,7 @@ import '../../utils/date_formatter.dart';
 import '../../validators/stock_validator.dart';
 import '../../widgets/custom_input.dart';
 import '../../widgets/loading_widget.dart';
+import '../../widgets/sync_status_badge.dart';
 
 class MovimientosPage extends StatefulWidget {
   final String insumoId;
@@ -219,6 +220,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
                             ],
                           ),
                           isThreeLine: true,
+                          trailing: SyncStatusBadge(syncStatus: m.syncStatus, showLabel: false),
                         ),
                       );
                     },

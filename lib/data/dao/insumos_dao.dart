@@ -5,8 +5,7 @@ import '../tables/insumos_table.dart';
 part 'insumos_dao.g.dart';
 
 @DriftAccessor(tables: [Insumos])
-class InsumosDao extends DatabaseAccessor<AppDatabase>
-    with _$InsumosDaoMixin {
+class InsumosDao extends DatabaseAccessor<AppDatabase> with _$InsumosDaoMixin {
   InsumosDao(super.db);
 
   Future<List<DbInsumo>> getAllInsumos() => select(insumos).get();
@@ -47,7 +46,18 @@ class InsumosDao extends DatabaseAccessor<AppDatabase>
   Future<List<DbInsumo>> getPendingSync() =>
       (select(insumos)..where((i) => i.syncStatus.equals('pending'))).get();
 
+  Future<List<DbInsumo>> getFailedSync() =>
+      (select(insumos)..where((i) => i.syncStatus.equals('failed'))).get();
+
   Future<void> markAsSynced(String id) =>
       (update(insumos)..where((i) => i.id.equals(id)))
           .write(const InsumosCompanion(syncStatus: Value('synced')));
+
+  Future<void> markAsFailed(String id) =>
+      (update(insumos)..where((i) => i.id.equals(id)))
+          .write(const InsumosCompanion(syncStatus: Value('failed')));
+
+  Future<void> markAsPending(String id) =>
+      (update(insumos)..where((i) => i.id.equals(id)))
+          .write(const InsumosCompanion(syncStatus: Value('pending')));
 }

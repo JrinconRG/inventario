@@ -10,13 +10,10 @@ class MovimientosDao extends DatabaseAccessor<AppDatabase>
   MovimientosDao(super.db);
 
   Future<List<DbMovimiento>> getAllMovimientos() =>
-      (select(movimientos)
-            ..orderBy([(m) => OrderingTerm.desc(m.fecha)]))
-          .get();
+      (select(movimientos)..orderBy([(m) => OrderingTerm.desc(m.fecha)])).get();
 
   Stream<List<DbMovimiento>> watchAllMovimientos() =>
-      (select(movimientos)
-            ..orderBy([(m) => OrderingTerm.desc(m.fecha)]))
+      (select(movimientos)..orderBy([(m) => OrderingTerm.desc(m.fecha)]))
           .watch();
 
   Future<List<DbMovimiento>> getMovimientosByInsumo(String insumoId) =>
@@ -35,11 +32,20 @@ class MovimientosDao extends DatabaseAccessor<AppDatabase>
       into(movimientos).insert(entry);
 
   Future<List<DbMovimiento>> getPendingSync() =>
-      (select(movimientos)
-            ..where((m) => m.syncStatus.equals('pending')))
-          .get();
+      (select(movimientos)..where((m) => m.syncStatus.equals('pending'))).get();
+
+  Future<List<DbMovimiento>> getFailedSync() =>
+      (select(movimientos)..where((m) => m.syncStatus.equals('failed'))).get();
 
   Future<void> markAsSynced(String id) =>
       (update(movimientos)..where((m) => m.id.equals(id)))
           .write(const MovimientosCompanion(syncStatus: Value('synced')));
+
+  Future<void> markAsFailed(String id) =>
+      (update(movimientos)..where((m) => m.id.equals(id)))
+          .write(const MovimientosCompanion(syncStatus: Value('failed')));
+
+  Future<void> markAsPending(String id) =>
+      (update(movimientos)..where((m) => m.id.equals(id)))
+          .write(const MovimientosCompanion(syncStatus: Value('pending')));
 }

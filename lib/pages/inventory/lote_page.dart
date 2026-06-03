@@ -6,7 +6,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../utils/helpers.dart';
 import '../../validators/lote_validator.dart';
-import '../../widgets/custom_button.dart';
 import '../../widgets/custom_input.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/lote_card.dart';
